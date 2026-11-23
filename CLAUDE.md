@@ -333,3 +333,17 @@ docker compose --profile loadtest run --rm loadtest
 It creates 50 accounts on A (web accounts, through the API) and 50 on B, connects all 100 clients, and every client sends 10 messages to clients of the other server (1000 messages, all crossing the federation), then reports delivery and latency and deletes the accounts. `LOADTEST_CLIENTS`, `LOADTEST_MESSAGES` and `LOADTEST_HOLD_SECONDS` (keep the clients connected to watch the dashboard) are environment variables. Measured here (with TLS between the servers): 100/100 clients online, 1000/1000 delivered, latency p50 about 50-360 ms, p95 about 140-410 ms. A real client path was also tested from the host (published port, certificate verified against the exported demo CA).
 
 **Operational notes.** The ejabberd base image declares `VOLUME /opt/ejabberd`, so compose keeps an anonymous volume across container recreations and a rebuilt image can be shadowed by the old content (the custom module is installed there): after changing `xmpp/Dockerfile` recreate with `docker compose up -d --build --force-recreate -V xmpp-a xmpp-b`. The config files themselves are bind-mounted, so editing them only needs a container restart. On Rancher Desktop the host port forwarder can get confused when containers are recreated repeatedly (a published port may then reach the wrong container or nothing, while a fresh host port works); restarting Rancher Desktop clears it, and nothing inside the compose network is affected.
+
+## 12. Load test of the web chat (TASK.md section 3)
+
+`tools/web-loadtest` (Node.js, SignalR client, talks to the public API like a browser) checks the capacity and performance requirements:
+
+```powershell
+docker compose --profile loadtest run --rm webloadtest
+```
+
+It registers 300 users, puts them all in one public room, makes 150 friend pairs, connects 300 SignalR clients and measures: presence latency (a friend sees someone go online / offline), delivery latency of messages in the 300-member room, in the personal chats (1500 messages) and in a burst of 100 senders writing at the same moment into the 300-member room (30,000 deliveries), and a room with 10,000 messages (newest page, paging back through everything, room list with unread counters). Limits checked: delivery under 3 s, presence under 2 s. All test accounts are deleted afterwards (`USERS`, `HISTORY_MESSAGES` and others are environment variables, see the compose file).
+
+Measured here (one machine, Docker Desktop): 300/300 users connected in about 1 s; presence p95 about 70-100 ms; room of 300: p95 about 50 ms, max about 160 ms; personal chats p95 about 200 ms; burst of 100 senders into the room of 300: p50 about 1.1 s, max about 1.5 s (first run) and 0.7 s (second run), nothing lost; 10,000 messages: every message reachable, newest page about 6 ms, every older page under 30 ms. Peak during the test: API about 8 CPU cores for a short time and 720 MB, PostgreSQL about 250 MB.
+
+Findings that the test led to (fixed): the "offline" presence notification was dropped when the last tab closed (it used the cancelled connection token), and the API connection pool (100) was as large as the PostgreSQL default limit (100), which locked out any other client while the pool was full; PostgreSQL now allows 200 connections and the pool is capped at 80 with a 60 second idle lifetime.

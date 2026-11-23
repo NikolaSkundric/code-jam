@@ -38,6 +38,12 @@ docker compose --profile loadtest run --rm loadtest                    # 50 clie
 docker compose --profile loadtest run --rm loadtest node bridge-test.mjs   # Jabber <-> website bridge checks
 ```
 
+## Load test of the web chat
+
+```powershell
+docker compose --profile loadtest run --rm webloadtest   # 300 simultaneous users, message and presence latency, a room with 10,000 messages
+```
+
 ## More
 
 - [CLAUDE.md](CLAUDE.md): architecture, folder structure, API reference, configuration and how each requirement is implemented.

@@ -52,5 +52,7 @@ public sealed class PresenceHub(
     }
 
     private Task Publish(PresenceChange? change) =>
-        change is null ? Task.CompletedTask : publisher.PublishAsync(change, Context.ConnectionAborted);
+        // No cancellation token on purpose: when a connection closes, Context.ConnectionAborted is already cancelled,
+        // and the "offline" notification must still be delivered.
+        change is null ? Task.CompletedTask : publisher.PublishAsync(change);
 }

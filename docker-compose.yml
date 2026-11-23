@@ -2,6 +2,9 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: chat-postgres
+    # The default limit of 100 connections is exactly the size of the API connection pool; leave room for
+    # tools (psql, migrations) and a second API instance.
+    command: ["postgres", "-c", "max_connections=200"]
     environment:
       POSTGRES_DB: chatdb
       POSTGRES_USER: postgres
@@ -32,7 +35,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=chatdb;Username=postgres;Password=${POSTGRES_PASSWORD:-postgres}
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=chatdb;Username=postgres;Password=${POSTGRES_PASSWORD:-postgres};Maximum Pool Size=80;Connection Idle Lifetime=60
       Jwt__SigningKey: ${JWT_SIGNING_KEY:-} # empty: the API uses a random key per start
       Email__Host: mailpit
       Email__Port: "1025"
@@ -114,6 +117,20 @@ services:
       - api
       - xmpp-a
       - xmpp-b
+
+  # Load test of the web chat (not started by default):
+  #   docker compose --profile loadtest run --rm webloadtest
+  # 300 simultaneous users, delivery and presence latency, a room with 10,000 messages.
+  webloadtest:
+    profiles: ["loadtest"]
+    build:
+      context: ./tools/web-loadtest
+    environment:
+      API_URL: http://api:8080
+      USERS: ${WEBLOADTEST_USERS:-300}
+      HISTORY_MESSAGES: ${WEBLOADTEST_HISTORY_MESSAGES:-10000}
+    depends_on:
+      - api
 
   frontend:
     build:
