@@ -10,7 +10,7 @@ export default function HomePage() {
       <h1>Welcome, {user?.username}</h1>
       <p>The chat view will live here.</p>
 
-      <h2>People online</h2>
+      <h2>Contacts online</h2>
       <OnlineUsersList />
     </section>
   )

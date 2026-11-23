@@ -59,6 +59,17 @@ export default function PresenceProvider({ children }: { children: ReactNode }) 
       setEntries(Object.fromEntries(snapshot.map((entry) => [entry.userId, entry])))
     }
 
+    // Whose presence we may see depends on friends and shared rooms: refresh when those change.
+    let snapshotTimer: number | undefined
+    const refreshSnapshotSoon = () => {
+      window.clearTimeout(snapshotTimer)
+      snapshotTimer = window.setTimeout(() => {
+        if (connection.state === HubConnectionState.Connected) void loadSnapshot().catch(() => {})
+      }, 300)
+    }
+    connection.on('FriendsChanged', refreshSnapshotSoon)
+    connection.on('RoomsChanged', refreshSnapshotSoon)
+
     connection.on('PresenceChanged', (change: PresenceEntry) => {
       setEntries((current) => {
         const next = { ...current }
@@ -105,6 +116,7 @@ export default function PresenceProvider({ children }: { children: ReactNode }) 
       })
 
     return () => {
+      window.clearTimeout(snapshotTimer)
       for (const name of ACTIVITY_EVENTS) window.removeEventListener(name, onActivity)
       window.removeEventListener('focus', onActivity)
       document.removeEventListener('visibilitychange', onVisible)

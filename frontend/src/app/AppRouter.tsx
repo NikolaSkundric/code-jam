@@ -10,7 +10,7 @@ import {
 } from '@/features/auth'
 import { MessagesPage, OpenChatPage } from '@/features/chat'
 import { ContactsPage } from '@/features/friends'
-import { RoomCatalogPage, RoomPage } from '@/features/rooms'
+import { PrivateRoomsPage, RoomCatalogPage, RoomPage } from '@/features/rooms'
 import HomePage from '@/pages/HomePage'
 import AppLayout from './AppLayout'
 import ChatLayout from './ChatLayout'
@@ -35,6 +35,7 @@ export default function AppRouter() {
             <Route path="/messages/with/:userId" element={<OpenChatPage />} />
             <Route path="/messages/:chatId" element={<MessagesPage />} />
             <Route path="/rooms" element={<RoomCatalogPage />} />
+            <Route path="/rooms/private" element={<PrivateRoomsPage />} />
             <Route path="/rooms/:roomId" element={<RoomPage />} />
           </Route>
         </Route>

@@ -299,3 +299,13 @@ a.sidebar-link:hover {
     display: none;
   }
 }
+
+.private-actions {
+  margin-top: 20px;
+}
+
+.room-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

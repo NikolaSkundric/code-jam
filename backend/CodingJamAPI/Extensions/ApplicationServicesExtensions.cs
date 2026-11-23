@@ -38,6 +38,7 @@ public static class ApplicationServicesExtensions
         services.AddScoped<IMessageService, MessageService>();
         services.AddScoped<IAttachmentService, AttachmentService>();
         services.AddScoped<IRoomService, RoomService>();
+        services.AddScoped<IPresenceAudienceService, PresenceAudienceService>();
         return services;
     }
 }

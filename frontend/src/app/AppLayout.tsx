@@ -3,34 +3,35 @@ import TopBar from '@/components/ui/TopBar'
 import { useAuth } from '@/features/auth'
 import { ChatProvider, useChat } from '@/features/chat'
 import { FriendsProvider, useFriends } from '@/features/friends'
-import { PresenceDot, PresenceProvider, usePresence } from '@/features/presence'
+import { PresenceProvider } from '@/features/presence'
 import { RoomsProvider, useRooms } from '@/features/rooms'
+import ProfileMenu from './ProfileMenu'
 
-/** Own presence next to the user name (offline until the connection is up). */
-function CurrentUser() {
-  const { user } = useAuth()
-  const { statusOf, connected } = usePresence()
-  if (!user) return null
-
-  return (
-    <span className="nav-user">
-      <PresenceDot status={connected ? statusOf(user.id) : 'offline'} showLabel />
-      <span>{user.username}</span>
-    </span>
-  )
-}
-
-/** Chats: unread messages in personal chats and rooms, plus pending room invitations. */
+/** Chats: unread messages in personal chats and rooms. */
 function ChatsLink() {
   const { unreadTotal } = useChat()
-  const { unreadTotal: roomsUnread, invitations } = useRooms()
-  const total = unreadTotal + roomsUnread + invitations.length
+  const { unreadTotal: roomsUnread } = useRooms()
+  const total = unreadTotal + roomsUnread
   return (
     <NavLink to="/messages" className="nav-link">
       Chats
       {total > 0 && (
-        <span className="nav-badge" aria-label={`${total} unread or pending`}>
+        <span className="nav-badge" aria-label={`${total} unread messages`}>
           {total}
+        </span>
+      )}
+    </NavLink>
+  )
+}
+
+function PrivateRoomsLink() {
+  const { invitations } = useRooms()
+  return (
+    <NavLink to="/rooms/private" className="nav-link">
+      Private Rooms
+      {invitations.length > 0 && (
+        <span className="nav-badge" aria-label={`${invitations.length} pending invitations`}>
+          {invitations.length}
         </span>
       )}
     </NavLink>
@@ -51,7 +52,7 @@ function ContactsLink() {
   )
 }
 
-/** Layout for signed-in pages: top menu and the page below. */
+/** Layout for signed-in pages. Top menu as in the wireframe: Public Rooms, Private Rooms, Contacts, Sessions, Profile, Sign out. */
 export default function AppLayout() {
   const { signOut } = useAuth()
   const navigate = useNavigate()
@@ -69,14 +70,15 @@ export default function AppLayout() {
             <div className="app-page">
               <TopBar logoTo="/">
                 <ChatsLink />
+                <NavLink to="/rooms" end className="nav-link">
+                  Public Rooms
+                </NavLink>
+                <PrivateRoomsLink />
                 <ContactsLink />
                 <NavLink to="/sessions" className="nav-link">
                   Sessions
                 </NavLink>
-                <NavLink to="/settings" className="nav-link">
-                  Settings
-                </NavLink>
-                <CurrentUser />
+                <ProfileMenu />
                 <button type="button" className="nav-link" onClick={handleSignOut}>
                   Sign out
                 </button>

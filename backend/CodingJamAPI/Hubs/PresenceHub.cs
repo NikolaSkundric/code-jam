@@ -10,12 +10,13 @@ namespace CodingJamAPI.Hubs;
 
 /// <summary>
 /// One connection per browser tab. Tabs call Activity() when the user interacts; the server decides
-/// Online / AFK / Offline across all tabs of the user (see IPresenceTracker).
-/// NOTE: changes are currently broadcast to every connected user; restrict them to the user's
-/// contacts and shared rooms once those exist.
+/// Online / AFK / Offline across all tabs of the user (see IPresenceTracker). A status change is sent
+/// only to the user themselves and to the people allowed to see it (friends and room mates), and
+/// GetSnapshot returns only those people.
+/// The same connection also carries the per-user push events (friends, messages, rooms).
 /// </summary>
 [Authorize]
-public sealed class PresenceHub(IPresenceTracker tracker, AppDbContext db) : Hub
+public sealed class PresenceHub(IPresenceTracker tracker, AppDbContext db, IPresenceAudienceService audience) : Hub
 {
     public const string PresenceChangedEvent = "PresenceChanged";
 
@@ -38,9 +39,24 @@ public sealed class PresenceHub(IPresenceTracker tracker, AppDbContext db) : Hub
     /// <summary>The user interacted with this tab.</summary>
     public Task Activity() => Publish(tracker.Activity(Context.ConnectionId));
 
-    /// <summary>Everyone currently Online or AFK.</summary>
-    public IReadOnlyList<PresenceChange> GetSnapshot() => tracker.GetSnapshot();
+    /// <summary>Contacts and room mates that are currently Online or AFK, plus the caller.</summary>
+    public async Task<IReadOnlyList<PresenceChange>> GetSnapshot()
+    {
+        var userId = Context.User!.GetUserId();
+        var visible = await audience.GetVisibleUsersAsync(userId, Context.ConnectionAborted);
+        visible.Add(userId);
+        return tracker.GetSnapshot().Where(p => visible.Contains(p.UserId)).ToList();
+    }
 
-    private Task Publish(PresenceChange? change) =>
-        change is null ? Task.CompletedTask : Clients.All.SendAsync(PresenceChangedEvent, change);
+    private async Task Publish(PresenceChange? change)
+    {
+        if (change is null)
+        {
+            return;
+        }
+
+        var recipients = await audience.GetVisibleUsersAsync(change.UserId, Context.ConnectionAborted);
+        recipients.Add(change.UserId);
+        await Clients.Users(recipients.Select(id => id.ToString()).ToList()).SendAsync(PresenceChangedEvent, change);
+    }
 }

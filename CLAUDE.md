@@ -193,7 +193,7 @@ lib/                  Shared infrastructure (http client, ApiError)
 styles/               index.css (global), theme.css + theme.ts (the 3 theme colors)
 ```
 
-Conventions: use the `@/` alias for imports from `src` (relative imports only inside the same feature folder); cross-feature imports go through the feature `index.ts`; the JWT lives in an HttpOnly cookie, so fetch uses `credentials: include`. Routes: public `/login`, `/register`, `/forgot-password`, `/reset-password?token=`; protected (inside `RequireAuth` + `AppLayout`) `/`, `/sessions`, `/messages`, `/messages/:chatId`, `/messages/with/:userId` (personal chats), `/rooms` (public catalog), `/rooms/:roomId`, `/contacts` (friends and friend requests), `/settings` (change password, delete account). `AuthProvider` restores the user from `GET /api/auth/me`; use `useAuth()`. Dev server proxies `/api` and `/hubs` to `localhost:5125`.
+Conventions: use the `@/` alias for imports from `src` (relative imports only inside the same feature folder); cross-feature imports go through the feature `index.ts`; the JWT lives in an HttpOnly cookie, so fetch uses `credentials: include`. Routes: public `/login`, `/register`, `/forgot-password`, `/reset-password?token=`; protected (inside `RequireAuth` + `AppLayout`) `/`, `/sessions`, `/messages`, `/messages/:chatId`, `/messages/with/:userId` (personal chats), `/rooms` (public catalog), `/rooms/private` (my private rooms and invitations), `/rooms/:roomId`, `/contacts` (friends and friend requests), `/settings` (change password, delete account). `AuthProvider` restores the user from `GET /api/auth/me`; use `useAuth()`. Dev server proxies `/api` and `/hubs` to `localhost:5125`.
 
 ## 5. Auth API (`/api/auth`)
 
@@ -217,7 +217,7 @@ Errors are RFC 7807 problem details; field errors are in `errors` (camelCase key
 
 SignalR hub `/hubs/presence` (HttpOnly-cookie auth), one connection per browser tab. Tabs call `Activity` on user interaction (mouse, keys, scroll, touch, focus; throttled to one report per 3 s). `PresenceTracker` (singleton) combines all tabs of a user: **online** if any tab had activity within `Presence:AfkAfterSeconds` (60), **AFK** if tabs are open but all idle, **offline** when no tab is open (connection closed). `PresenceSweeperService` re-evaluates every second and the hub pushes `PresenceChanged {userId, username, status}`; `GetSnapshot` returns everyone online/AFK. Frontend: `features/presence` (`PresenceProvider` in `AppLayout`, `usePresence()`, `PresenceDot`: filled = online, half = AFK, hollow = offline).
 
-TODO: changes are broadcast to all connected users; restrict to contacts and shared rooms (TASK.md 2.2.1) once contacts and rooms exist. Presence is held in memory (single API instance).
+Presence is visible only to the user, their friends and people who share a room with them (TASK.md 2.2.1): `IPresenceAudienceService` computes that symmetric set; `PresenceChanged` is sent only to it (`Clients.Users`) and `GetSnapshot` returns only those people; the client re-reads the snapshot on `FriendsChanged` / `RoomsChanged`. Presence is held in memory (single API instance).
 
 ## 7. Friends (`/api/friends`)
 
@@ -281,3 +281,7 @@ A room is a `Chat` (type Room) + `Room` (same id) + `RoomMember` rows (role `own
 | `GET /api/invitations`, `POST .../{id}/accept\|decline` | The invited user's own invitations (private rooms are joined only this way) |
 
 Deleting a room (TASK.md 2.4.6): `ExecuteDelete` on the `Chat` row cascades to room, members, bans, invitations, messages (including soft deleted) and attachment rows, then `IFileStorage.DeleteFolder` removes `uploads/{roomId}`. Max 1000 members per room. Push event `RoomsChanged` (payload room id) goes to members/affected users; the frontend `RoomsProvider` and `RoomPage` refetch. Frontend: `features/rooms` (sidebar section with public/private accordion + invitations, catalog page, `RoomPage` = thread + members panel, `ManageRoomModal` with Members/Admins/Banned users/Invitations/Settings tabs); `src/app/ChatLayout.tsx` composes the sidebar (rooms + contacts) around `/messages/*` and `/rooms/*`; `MessageThread` is shared by personal chats and rooms. Friend requests can be sent from the members panel ("Add friend", TASK.md 2.3.2).
+
+### UI layout notes (TASK.md 4.1)
+
+Top menu (wireframe): Chats, Public Rooms (catalog), Private Rooms, Contacts, Sessions, Profile menu (name, status, Settings), Sign out. The chat sidebar (left, as drawn in the wireframe) is collapsible (preference kept in localStorage) and its Public rooms / Private rooms / Contacts sections are an accordion: all open on the overview, and entering a room or chat compacts it to the group that contains it. Deleting an account also removes the upload folders of the rooms it owned.

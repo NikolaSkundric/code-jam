@@ -23,7 +23,6 @@ export default function ConversationList() {
 
   return (
     <nav className="conversation-list" aria-label="Contacts">
-      <h2>Contacts</h2>
       <ul>
         {conversations.map((c) => (
           <li key={c.chatId}>

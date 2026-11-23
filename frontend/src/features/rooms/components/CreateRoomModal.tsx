@@ -9,12 +9,13 @@ import type { RoomVisibility } from '../types'
 interface CreateRoomModalProps {
   onClose: () => void
   onCreated: (roomId: string) => void
+  defaultVisibility?: RoomVisibility
 }
 
-export default function CreateRoomModal({ onClose, onCreated }: CreateRoomModalProps) {
+export default function CreateRoomModal({ onClose, onCreated, defaultVisibility = 'public' }: CreateRoomModalProps) {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  const [visibility, setVisibility] = useState<RoomVisibility>('public')
+  const [visibility, setVisibility] = useState<RoomVisibility>(defaultVisibility)
   const [nameError, setNameError] = useState<string>()
   const [formError, setFormError] = useState('')
   const [submitting, setSubmitting] = useState(false)

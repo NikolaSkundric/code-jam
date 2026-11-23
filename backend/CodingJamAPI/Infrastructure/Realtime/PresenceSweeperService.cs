@@ -6,10 +6,11 @@ using Microsoft.Extensions.Options;
 
 namespace CodingJamAPI.Infrastructure.Realtime;
 
-/// <summary>Periodically detects users whose tabs all became idle and broadcasts the change.</summary>
+/// <summary>Periodically detects users whose tabs all became idle and tells the people who may see their status.</summary>
 public sealed class PresenceSweeperService(
     IPresenceTracker tracker,
     IHubContext<PresenceHub> hub,
+    IServiceScopeFactory scopeFactory,
     IOptions<PresenceOptions> options,
     ILogger<PresenceSweeperService> logger) : BackgroundService
 {
@@ -20,9 +21,20 @@ public sealed class PresenceSweeperService(
         {
             try
             {
-                foreach (var change in tracker.Sweep())
+                var changes = tracker.Sweep();
+                if (changes.Count == 0)
                 {
-                    await hub.Clients.All.SendAsync(PresenceHub.PresenceChangedEvent, change, stoppingToken);
+                    continue;
+                }
+
+                await using var scope = scopeFactory.CreateAsyncScope();
+                var audience = scope.ServiceProvider.GetRequiredService<IPresenceAudienceService>();
+                foreach (var change in changes)
+                {
+                    var recipients = await audience.GetVisibleUsersAsync(change.UserId, stoppingToken);
+                    recipients.Add(change.UserId);
+                    await hub.Clients.Users(recipients.Select(id => id.ToString()).ToList())
+                        .SendAsync(PresenceHub.PresenceChangedEvent, change, stoppingToken);
                 }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)

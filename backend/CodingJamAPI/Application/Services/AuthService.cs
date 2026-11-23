@@ -7,6 +7,7 @@ using CodingJamAPI.Contracts.Responses;
 using CodingJamAPI.Domain.Entities;
 using CodingJamAPI.Domain.Exceptions;
 using CodingJamAPI.Infrastructure.Persistence;
+using CodingJamAPI.Infrastructure.Realtime;
 using CodingJamAPI.Options;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
@@ -21,7 +22,9 @@ public sealed class AuthService(
     ITokenService tokens,
     IEmailSender emailSender,
     IOptions<JwtOptions> jwtOptions,
-    IOptions<AppOptions> appOptions) : IAuthService
+    IOptions<AppOptions> appOptions,
+    IFileStorage storage,
+    IRealtimeNotifier notifier) : IAuthService
 {
     private static readonly TimeSpan ResetTokenLifetime = TimeSpan.FromHours(1);
     private const string InvalidCredentials = "Invalid email or password.";
@@ -207,6 +210,19 @@ public sealed class AuthService(
         }
 
         var now = DateTime.UtcNow;
+
+        // Collect who must be told (and which upload folders to remove) before the data is gone.
+        var ownedRoomIds = await db.Rooms.AsNoTracking().Where(r => r.OwnerId == userId).Select(r => r.Id).ToListAsync(ct);
+        var roomMemberIds = ownedRoomIds.Count == 0
+            ? []
+            : await db.RoomMembers.AsNoTracking()
+                .Where(m => ownedRoomIds.Contains(m.RoomId) && m.UserId != userId)
+                .Select(m => m.UserId).Distinct().ToListAsync(ct);
+        var friendIds = await db.Friendships.AsNoTracking()
+            .Where(f => f.UserAId == userId || f.UserBId == userId)
+            .Select(f => f.UserAId == userId ? f.UserBId : f.UserAId)
+            .ToListAsync(ct);
+
         await using var tx = await db.Database.BeginTransactionAsync(ct);
 
         // TASK.md 2.1.5: rooms owned by the user are deleted permanently with all their
@@ -238,6 +254,14 @@ public sealed class AuthService(
                 .SetProperty(u => u.Email, anonymizedEmail), ct);
 
         await tx.CommitAsync(ct);
+
+        // Files of the deleted rooms are removed permanently too (TASK.md 2.1.5, 2.4.6).
+        foreach (var roomId in ownedRoomIds)
+        {
+            storage.DeleteFolder(roomId.ToString("N"));
+            await notifier.NotifyAsync(roomMemberIds, RealtimeEvents.RoomsChanged, roomId, ct);
+        }
+        await notifier.FriendsChangedAsync(friendIds, ct);
     }
 
     // ---------- helpers ----------
