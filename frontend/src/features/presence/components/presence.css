@@ -1,0 +1,43 @@
+.presence {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.presence-dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--color-accent);
+  box-sizing: border-box;
+}
+
+/* online: filled */
+.presence-online {
+  background: var(--color-accent);
+}
+
+/* AFK: half filled */
+.presence-afk {
+  background: linear-gradient(90deg, var(--color-accent) 50%, transparent 50%);
+}
+
+/* offline: hollow */
+.presence-offline {
+  background: transparent;
+  border-color: var(--color-text-muted);
+}
+
+.presence-label {
+  font-size: 0.85rem;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
