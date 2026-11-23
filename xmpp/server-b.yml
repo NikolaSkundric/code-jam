@@ -1,0 +1,9 @@
+# Server B: a second, independent Jabber server used to demonstrate and load-test federation with server A.
+# Its accounts live in ejabberd itself (the load test creates them through the internal API).
+define_macro:
+  HOST: "b.chat.test"
+  # A different container port than server A: Rancher Desktop mixes up published ports that share a
+  # container port, so B listens on 5223 inside the container as well.
+  C2S_PORT: 5223
+
+auth_method: internal

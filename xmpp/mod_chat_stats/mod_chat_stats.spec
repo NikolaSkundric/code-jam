@@ -1,0 +1,5 @@
+author: "Chat project"
+category: "stats"
+summary: "Counts stanzas exchanged with other Jabber servers (federation traffic) for the admin dashboard"
+home: "https://github.com/NikolaSkundric/code-jam"
+url: "https://github.com/NikolaSkundric/code-jam"

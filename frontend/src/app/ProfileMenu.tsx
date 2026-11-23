@@ -51,6 +51,11 @@ export default function ProfileMenu() {
           <NavLink to="/settings" role="menuitem" className="profile-item" onClick={() => setOpen(false)}>
             Settings
           </NavLink>
+          {user.isAdmin && (
+            <NavLink to="/admin/jabber" role="menuitem" className="profile-item" onClick={() => setOpen(false)}>
+              Jabber admin
+            </NavLink>
+          )}
         </div>
       )}
     </div>

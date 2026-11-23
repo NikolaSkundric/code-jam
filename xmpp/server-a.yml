@@ -1,0 +1,10 @@
+# Server A: the Jabber side of this chat application. Accounts are the web accounts (same username and
+# password), checked by the API through extauth.py.
+define_macro:
+  HOST: "a.chat.test"
+  C2S_PORT: 5222
+
+auth_method: external
+extauth_program: "python3 /opt/ejabberd/extauth.py"
+extauth_pool_size: 4
+auth_use_cache: false

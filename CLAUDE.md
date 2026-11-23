@@ -193,7 +193,7 @@ lib/                  Shared infrastructure (http client, ApiError)
 styles/               index.css (global), theme.css + theme.ts (the 3 theme colors)
 ```
 
-Conventions: use the `@/` alias for imports from `src` (relative imports only inside the same feature folder); cross-feature imports go through the feature `index.ts`; the JWT lives in an HttpOnly cookie, so fetch uses `credentials: include`. Routes: public `/login`, `/register`, `/forgot-password`, `/reset-password?token=`; protected (inside `RequireAuth` + `AppLayout`) `/`, `/sessions`, `/messages`, `/messages/:chatId`, `/messages/with/:userId` (personal chats), `/rooms` (public catalog), `/rooms/private` (my private rooms and invitations), `/rooms/:roomId`, `/contacts` (friends and friend requests), `/settings` (change password, delete account). `AuthProvider` restores the user from `GET /api/auth/me`; use `useAuth()`. Dev server proxies `/api` and `/hubs` to `localhost:5125`.
+Conventions: use the `@/` alias for imports from `src` (relative imports only inside the same feature folder); cross-feature imports go through the feature `index.ts`; the JWT lives in an HttpOnly cookie, so fetch uses `credentials: include`. Routes: public `/login`, `/register`, `/forgot-password`, `/reset-password?token=`; protected (inside `RequireAuth` + `AppLayout`) `/`, `/sessions`, `/messages`, `/messages/:chatId`, `/messages/with/:userId` (personal chats), `/rooms` (public catalog), `/rooms/private` (my private rooms and invitations), `/rooms/:roomId`, `/contacts` (friends and friend requests), `/admin/jabber` (admin only), `/settings` (change password, delete account). `AuthProvider` restores the user from `GET /api/auth/me`; use `useAuth()`. Dev server proxies `/api` and `/hubs` to `localhost:5125`.
 
 ## 5. Auth API (`/api/auth`)
 
@@ -297,3 +297,26 @@ No secret is stored in the repository. `.env` (git-ignored; template: `.env.exam
 - Fresh clone without `.env`: `docker compose up` still works. The database falls back to the throwaway password `postgres` (published on 127.0.0.1 only), and the API generates a random JWT key at startup, so users are signed out whenever the API restarts. Copy `.env.example` to `.env` and set real values for anything beyond a local demo.
 - The postgres password is applied only when the data volume is first created. Change it later with `ALTER USER postgres PASSWORD '...'` (or `docker compose down -v`, which deletes all data), then update `.env`.
 - The first two commits still contain the old placeholder values (`postgres` password, a dev JWT key). The local database password was rotated, so they are useless; rewrite history before publishing if that matters.
+
+## 11. Jabber / XMPP (TASK.md section 6)
+
+Support level: standard XMPP clients can sign in with their website account, two servers federate, and administrators get a live dashboard. Messages exchanged over XMPP stay in XMPP (they are not mirrored into the web chat); that bridge is not built.
+
+**Servers.** `xmpp-a` and `xmpp-b` are [ejabberd](https://www.ejabberd.im/) containers built from `xmpp/` (shared config `ejabberd.yml`, per-server `server-a.yml` / `server-b.yml`, mounted read-only). They use fixed internal domains `a.chat.test` and `b.chat.test`, resolved inside the compose network through network aliases.
+- **A is the Jabber side of this chat.** Accounts are the web accounts: JID `<username>@a.chat.test`, the website password. ejabberd runs `xmpp/extauth.py`, which calls the API (`POST /internal/xmpp/auth` and `/isuser`, protected by the shared secret header `X-Xmpp-Auth-Secret`, setting `XMPP_AUTH_SECRET`); the API checks the BCrypt hash. Accounts cannot be created or changed over XMPP.
+- **B is a second, independent server** with its own accounts (created with ejabberd's `register` API, as the load test does). It exists to federate with A.
+- Client connections: host port 5222 (A) and 5223 (B), STARTTLS required, self-signed certificate (clients must accept it; a client can also set the connect host to `localhost` while the domain is `a.chat.test`). Federation port 5269 (A) is published on 127.0.0.1.
+
+**Federation.** A and B reach each other on port 5269 by their network aliases and authenticate each other with dialback (`mod_s2s_dialback`). The link is *not* TLS-encrypted: the demo certificates are self-signed and a federation peer rightly rejects those. For real federation use CA certificates and `s2s_use_starttls: required_trusted`.
+
+**Admin dashboard.** `GET /api/admin/jabber` (admins only: usernames in `Admin:Usernames`, env `ADMIN_USERNAME`, default `admin`, shown as `isAdmin` in `/api/auth/me`) and the page `/admin/jabber` (Profile menu -> Jabber admin) show, for both servers: online status, version, uptime, connected users and their sessions (JID, connection type, address, duration), server-to-server link counts and federation traffic per remote server (messages, presence, IQ in/out). Data comes from ejabberd's internal management API (`/api` on port 5280, restricted to the compose network by ACL) and from `xmpp/mod_chat_stats`, a small ejabberd module (Erlang, compiled into the image) that counts stanzas to and from other servers and publishes them at `/stats`. The counters are in RAM and reset when the Jabber server restarts. Settings page: a card tells each user their JID and how to connect.
+
+**Load test** (`tools/xmpp-loadtest`, Node.js with the [`@xmpp/client`](https://github.com/xmppjs/xmpp.js) library, runs inside the compose network):
+
+```powershell
+docker compose --profile loadtest run --rm loadtest
+```
+
+It creates 50 accounts on A (web accounts, through the API) and 50 on B, connects all 100 clients, and every client sends 10 messages to clients of the other server (1000 messages, all crossing the federation), then reports delivery and latency and deletes the accounts. `LOADTEST_CLIENTS`, `LOADTEST_MESSAGES` and `LOADTEST_HOLD_SECONDS` (keep the clients connected to watch the dashboard) are environment variables. Measured here: 100/100 clients online, 1000/1000 delivered, latency p50 about 50-300 ms, p95 about 140-340 ms.
+
+**Operational notes.** The ejabberd base image declares `VOLUME /opt/ejabberd`, so compose keeps an anonymous volume across container recreations and a rebuilt image can be shadowed by the old content (the custom module is installed there): after changing `xmpp/Dockerfile` recreate with `docker compose up -d --build --force-recreate -V xmpp-a xmpp-b`. The config files themselves are bind-mounted, so editing them only needs a container restart. On Rancher Desktop the host port forwarder can get confused when containers are recreated repeatedly (a host port may then reach the wrong server); `docker compose down` followed by `up -d`, or restarting Rancher Desktop, fixes it, and nothing inside the compose network is affected.

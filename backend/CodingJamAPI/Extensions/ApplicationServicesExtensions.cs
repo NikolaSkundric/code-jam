@@ -3,6 +3,7 @@ using CodingJamAPI.Application.Services;
 using CodingJamAPI.Infrastructure.Auth;
 using CodingJamAPI.Infrastructure.Realtime;
 using CodingJamAPI.Infrastructure.Storage;
+using CodingJamAPI.Infrastructure.Xmpp;
 using CodingJamAPI.Options;
 using Microsoft.AspNetCore.SignalR;
 
@@ -38,6 +39,11 @@ public static class ApplicationServicesExtensions
 
         services.AddSingleton<IUserIdProvider, SubUserIdProvider>();
         services.AddSingleton<IRealtimeNotifier, SignalRNotifier>();
+
+        services.Configure<XmppOptions>(configuration.GetSection(XmppOptions.SectionName));
+        services.Configure<AdminOptions>(configuration.GetSection(AdminOptions.SectionName));
+        services.AddScoped<IXmppAuthService, XmppAuthService>();
+        services.AddHttpClient<IXmppAdminService, EjabberdAdminService>(c => c.Timeout = TimeSpan.FromSeconds(6));
 
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IFriendService, FriendService>();

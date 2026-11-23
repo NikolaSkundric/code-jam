@@ -1,9 +1,11 @@
+import type { ReactNode } from 'react'
 import ChangePasswordForm from '../components/ChangePasswordForm'
 import DeleteAccountSection from '../components/DeleteAccountSection'
 import { useAuth } from '../useAuth'
 import './settings.css'
 
-export default function SettingsPage() {
+/** children: extra cards from other features, shown between the password form and account deletion. */
+export default function SettingsPage({ children }: { children?: ReactNode }) {
   const { user } = useAuth()
 
   return (
@@ -14,6 +16,7 @@ export default function SettingsPage() {
       </p>
 
       <ChangePasswordForm />
+      {children}
       <DeleteAccountSection />
     </section>
   )

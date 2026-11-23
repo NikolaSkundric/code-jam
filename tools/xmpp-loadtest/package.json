@@ -1,0 +1,13 @@
+{
+  "name": "xmpp-loadtest",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Federation load test: many Jabber clients on two servers messaging each other",
+  "type": "module",
+  "scripts": {
+    "start": "node loadtest.mjs"
+  },
+  "dependencies": {
+    "@xmpp/client": "^0.14.0"
+  }
+}

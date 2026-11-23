@@ -23,6 +23,7 @@ public sealed class AuthService(
     IEmailSender emailSender,
     IOptions<JwtOptions> jwtOptions,
     IOptions<AppOptions> appOptions,
+    IOptions<AdminOptions> adminOptions,
     IFileStorage storage,
     IRealtimeNotifier notifier) : IAuthService
 {
@@ -296,7 +297,8 @@ public sealed class AuthService(
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.RevokedAt, now), ct);
     }
 
-    private static UserResponse ToResponse(User user) => new(user.Id, user.Email, user.Username);
+    private UserResponse ToResponse(User user) =>
+        new(user.Id, user.Email, user.Username, adminOptions.Value.IsAdmin(user.Username));
 
     private static string NormalizeEmail(string email) => email.Trim().ToLowerInvariant();
 

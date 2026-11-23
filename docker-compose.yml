@@ -37,6 +37,14 @@ services:
       Email__Host: mailpit
       Email__Port: "1025"
       Email__From: no-reply@chat.local
+      # Jabber: the API answers ejabberd's login checks and reads its management API / metrics
+      Xmpp__Domain: a.chat.test
+      Xmpp__AuthSecret: ${XMPP_AUTH_SECRET:-dev-xmpp-auth-secret}
+      Xmpp__AdminApiUrl: http://xmpp-a:5280
+      Xmpp__PeerDomain: b.chat.test
+      Xmpp__PeerAdminApiUrl: http://xmpp-b:5280
+      # Users who may open the administration pages (comma separated usernames are not supported: one name)
+      Admin__Usernames__0: ${ADMIN_USERNAME:-admin}
     depends_on:
       postgres:
         condition: service_healthy
@@ -46,6 +54,66 @@ services:
       - "5125:8080" # direct API access (the frontend proxies /api and /hubs here)
     volumes:
       - uploads-data:/app/uploads
+
+  # Jabber server A: the Jabber side of this chat. Same accounts as the website (web username + password).
+  # Connect a Jabber client to localhost:5222 with the JID <username>@a.chat.test (accept the self-signed certificate).
+  xmpp-a:
+    build:
+      context: ./xmpp
+    container_name: chat-xmpp-a
+    environment:
+      XMPP_AUTH_URL: http://api:8080/internal/xmpp
+      XMPP_AUTH_SECRET: ${XMPP_AUTH_SECRET:-dev-xmpp-auth-secret}
+    volumes:
+      - ./xmpp/server-a.yml:/opt/ejabberd/conf/server.yml:ro
+      - ./xmpp/ejabberd.yml:/opt/ejabberd/conf/ejabberd.yml:ro
+      - ./xmpp/extauth.py:/opt/ejabberd/extauth.py:ro
+      - xmpp-a-data:/opt/ejabberd/database
+    networks:
+      default:
+        aliases:
+          - a.chat.test
+    depends_on:
+      - api
+    ports:
+      - "127.0.0.1:5222:5222" # Jabber clients
+      - "127.0.0.1:5269:5269" # federation (server to server)
+    restart: unless-stopped
+
+  # Jabber server B: a second, independent server to federate with A (its own accounts, see xmpp/server-b.yml).
+  xmpp-b:
+    build:
+      context: ./xmpp
+    container_name: chat-xmpp-b
+    volumes:
+      - ./xmpp/server-b.yml:/opt/ejabberd/conf/server.yml:ro
+      - ./xmpp/ejabberd.yml:/opt/ejabberd/conf/ejabberd.yml:ro
+      - ./xmpp/extauth.py:/opt/ejabberd/extauth.py:ro
+      - xmpp-b-data:/opt/ejabberd/database
+    networks:
+      default:
+        aliases:
+          - b.chat.test
+    ports:
+      - "127.0.0.1:5223:5223" # Jabber clients (B listens on 5223 inside the container too)
+    restart: unless-stopped
+
+  # Federation load test (not started by default):
+  #   docker compose --profile loadtest run --rm loadtest
+  # 50 Jabber clients on server A and 50 on server B message each other across the federation.
+  loadtest:
+    profiles: ["loadtest"]
+    build:
+      context: ./tools/xmpp-loadtest
+    environment:
+      API_URL: http://api:8080
+      CLIENTS: ${LOADTEST_CLIENTS:-50}
+      MESSAGES: ${LOADTEST_MESSAGES:-10}
+      HOLD_SECONDS: ${LOADTEST_HOLD_SECONDS:-0}
+    depends_on:
+      - api
+      - xmpp-a
+      - xmpp-b
 
   frontend:
     build:
@@ -60,3 +128,5 @@ services:
 volumes:
   postgres-data:
   uploads-data:
+  xmpp-a-data:
+  xmpp-b-data:

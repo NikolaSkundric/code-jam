@@ -10,6 +10,7 @@ import {
 } from '@/features/auth'
 import { MessagesPage, OpenChatPage } from '@/features/chat'
 import { ContactsPage } from '@/features/friends'
+import { JabberDashboardPage, JabberInfoCard, RequireAdmin } from '@/features/jabber'
 import { PrivateRoomsPage, RoomCatalogPage, RoomPage } from '@/features/rooms'
 import HomePage from '@/pages/HomePage'
 import AppLayout from './AppLayout'
@@ -28,7 +29,17 @@ export default function AppRouter() {
           <Route path="/" element={<HomePage />} />
           <Route path="/contacts" element={<ContactsPage />} />
           <Route path="/sessions" element={<SessionsPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
+          <Route
+            path="/settings"
+            element={
+              <SettingsPage>
+                <JabberInfoCard />
+              </SettingsPage>
+            }
+          />
+          <Route element={<RequireAdmin />}>
+            <Route path="/admin/jabber" element={<JabberDashboardPage />} />
+          </Route>
 
           <Route element={<ChatLayout />}>
             <Route path="/messages" element={<MessagesPage />} />
