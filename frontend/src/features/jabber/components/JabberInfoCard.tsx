@@ -28,7 +28,8 @@ export default function JabberInfoCard() {
       <h2 id="jabber-title">Jabber (XMPP)</h2>
       <p className="settings-hint">
         You can also chat with any Jabber client (Gajim, Conversations, Pidgin, ...). Sign in with your website
-        password.
+        password. Your friends appear in the client as contacts, and chat messages between friends show up in both
+        places, here and in the Jabber client.
       </p>
       <dl className="jabber-info">
         <dt>Jabber ID</dt>
@@ -43,6 +44,11 @@ export default function JabberInfoCard() {
         </dd>
         <dt>Password</dt>
         <dd>The same password as on this website</dd>
+        <dt>Certificate</dt>
+        <dd>
+          Issued by the demo CA of this installation: import it into the client (or accept the warning). Get it with{' '}
+          <code>docker cp chat-xmpp-a:/opt/chat-certs/ca.pem .</code>
+        </dd>
       </dl>
     </section>
   )

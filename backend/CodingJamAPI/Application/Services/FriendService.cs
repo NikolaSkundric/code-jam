@@ -11,7 +11,7 @@ using Npgsql;
 
 namespace CodingJamAPI.Application.Services;
 
-public sealed class FriendService(AppDbContext db, IRealtimeNotifier notifier, IBanService bans) : IFriendService
+public sealed class FriendService(AppDbContext db, IRealtimeNotifier notifier, IBanService bans, IJabberGateway jabber) : IFriendService
 {
     // ---------- friends ----------
 
@@ -39,6 +39,7 @@ public sealed class FriendService(AppDbContext db, IRealtimeNotifier notifier, I
         db.Friendships.Remove(friendship); // soft delete
         await db.SaveChangesAsync(ct);
         await notifier.FriendsChangedAsync([userId, friendId], ct);
+        await SyncRosterAsync(userId, friendId, add: false, ct);
     }
 
     // ---------- requests ----------
@@ -161,6 +162,7 @@ public sealed class FriendService(AppDbContext db, IRealtimeNotifier notifier, I
         }
 
         await notifier.FriendsChangedAsync([request.SenderId, request.RecipientId], ct);
+        await SyncRosterAsync(request.SenderId, request.RecipientId, add: true, ct);
     }
 
     public async Task DeclineRequestAsync(Guid userId, Guid requestId, CancellationToken ct)
@@ -181,6 +183,16 @@ public sealed class FriendService(AppDbContext db, IRealtimeNotifier notifier, I
     }
 
     // ---------- helpers ----------
+
+    /// <summary>Friends see each other in their Jabber rosters (best effort, not awaited).</summary>
+    private async Task SyncRosterAsync(Guid userA, Guid userB, bool add, CancellationToken ct)
+    {
+        var names = await LoadUsernamesAsync([userA, userB], ct);
+        if (names.TryGetValue(userA, out var nameA) && names.TryGetValue(userB, out var nameB))
+        {
+            _ = add ? jabber.AddFriendshipAsync(nameA, nameB) : jabber.RemoveFriendshipAsync(nameA, nameB);
+        }
+    }
 
     private async Task<FriendRequest> FindPendingAsync(
         System.Linq.Expressions.Expression<Func<FriendRequest, bool>> predicate, CancellationToken ct) =>

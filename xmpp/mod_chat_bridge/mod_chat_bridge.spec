@@ -1,0 +1,5 @@
+author: "Chat project"
+category: "chat"
+summary: "Reports chat messages and presence of local users to the chat web API (bridge between Jabber and the website)"
+home: "https://github.com/NikolaSkundric/code-jam"
+url: "https://github.com/NikolaSkundric/code-jam"

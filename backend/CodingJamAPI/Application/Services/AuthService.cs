@@ -25,7 +25,8 @@ public sealed class AuthService(
     IOptions<AppOptions> appOptions,
     IOptions<AdminOptions> adminOptions,
     IFileStorage storage,
-    IRealtimeNotifier notifier) : IAuthService
+    IRealtimeNotifier notifier,
+    IJabberGateway jabber) : IAuthService
 {
     private static readonly TimeSpan ResetTokenLifetime = TimeSpan.FromHours(1);
     private const string InvalidCredentials = "Invalid email or password.";
@@ -263,6 +264,17 @@ public sealed class AuthService(
             await notifier.NotifyAsync(roomMemberIds, RealtimeEvents.RoomsChanged, roomId, ct);
         }
         await notifier.FriendsChangedAsync(friendIds, ct);
+
+        // The Jabber side: friends lose the contact and the Jabber sessions of the deleted user are closed.
+        var friendNames = await db.Users.IgnoreQueryFilters().AsNoTracking()
+            .Where(u => friendIds.Contains(u.Id))
+            .Select(u => u.Username)
+            .ToListAsync(ct);
+        foreach (var friendName in friendNames)
+        {
+            _ = jabber.RemoveFriendshipAsync(user.Username, friendName);
+        }
+        _ = jabber.KickUserAsync(user.Username);
     }
 
     // ---------- helpers ----------

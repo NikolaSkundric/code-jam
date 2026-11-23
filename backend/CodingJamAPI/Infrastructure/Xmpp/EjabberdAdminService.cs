@@ -13,7 +13,7 @@ namespace CodingJamAPI.Infrastructure.Xmpp;
 /// federation traffic counters of mod_chat_stats (GET /stats). Never reachable from outside the compose network.
 /// </summary>
 public sealed partial class EjabberdAdminService(
-    HttpClient http,
+    EjabberdApiClient api,
     IOptions<XmppOptions> options,
     ILogger<EjabberdAdminService> logger) : IXmppAdminService
 {
@@ -46,13 +46,13 @@ public sealed partial class EjabberdAdminService(
             var token = timeout.Token;
             var root = baseUrl.TrimEnd('/');
 
-            var status = await CommandAsync(root, "status", new { }, token);
-            var uptime = await CommandAsync(root, "stats", new { name = "uptimeseconds" }, token);
-            var connected = await CommandAsync(root, "connected_users_number", new { }, token);
-            var incoming = await CommandAsync(root, "incoming_s2s_number", new { }, token);
-            var outgoing = await CommandAsync(root, "outgoing_s2s_number", new { }, token);
-            var sessions = await CommandAsync(root, "connected_users_info", new { }, token);
-            var traffic = await http.GetStringAsync($"{root}/stats", token);
+            var status = await api.CommandAsync(root, "status", new { }, token);
+            var uptime = await api.CommandAsync(root, "stats", new { name = "uptimeseconds" }, token);
+            var connected = await api.CommandAsync(root, "connected_users_number", new { }, token);
+            var incoming = await api.CommandAsync(root, "incoming_s2s_number", new { }, token);
+            var outgoing = await api.CommandAsync(root, "outgoing_s2s_number", new { }, token);
+            var sessions = await api.CommandAsync(root, "connected_users_info", new { }, token);
+            var traffic = await api.GetTextAsync($"{root}/stats", token);
 
             return new XmppServerResponse(
                 name, domain, true, null,
@@ -65,16 +65,6 @@ public sealed partial class EjabberdAdminService(
             logger.LogWarning(ex, "Jabber server {Domain} is not reachable", domain);
             return new XmppServerResponse(name, domain, false, "The server is not reachable.", null, 0, 0, 0, 0, [], []);
         }
-    }
-
-    private async Task<JsonElement> CommandAsync(string root, string command, object body, CancellationToken ct)
-    {
-        // StringContent has a Content-Length; ejabberd answers 400 to the chunked body PostAsJsonAsync would send.
-        using var content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
-        using var response = await http.PostAsync($"{root}/api/{command}", content, ct);
-        response.EnsureSuccessStatusCode();
-        using var document = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
-        return document.RootElement.Clone();
     }
 
     private static long AsLong(JsonElement element) =>

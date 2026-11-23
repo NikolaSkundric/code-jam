@@ -18,7 +18,8 @@ public sealed class MessageService(
     IChatAccessService access,
     IRealtimeNotifier notifier,
     IFileStorage storage,
-    IOptions<StorageOptions> storageOptions) : IMessageService
+    IOptions<StorageOptions> storageOptions,
+    IJabberGateway jabber) : IMessageService
 {
     /// <summary>TASK.md 2.5.2: maximum text size per message.</summary>
     private const int MaxTextBytes = 3 * 1024;
@@ -126,6 +127,25 @@ public sealed class MessageService(
 
         var response = (await MapAsync([message], ct))[0];
         await notifier.NotifyAsync(chatAccess.ParticipantIds, RealtimeEvents.MessageReceived, response, ct);
+        await ForwardToJabberAsync(userId, chatId, text, prepared, chatAccess, ct);
+        return response;
+    }
+
+    public async Task<MessageResponse> ReceiveFromJabberAsync(Guid authorId, Guid chatId, string text, CancellationToken ct)
+    {
+        var chatAccess = await RequireWriteAsync(authorId, chatId, ct);
+        var message = new Message
+        {
+            ChatId = chatId,
+            AuthorId = authorId,
+            Text = ValidateText(text, allowEmpty: false),
+            CreatedAt = DateTime.UtcNow
+        };
+        db.Messages.Add(message);
+        await db.SaveChangesAsync(ct);
+
+        var response = (await MapAsync([message], ct))[0];
+        await notifier.NotifyAsync(chatAccess.ParticipantIds, RealtimeEvents.MessageReceived, response, ct);
         return response;
     }
 
@@ -196,6 +216,33 @@ public sealed class MessageService(
     }
 
     // ---------- helpers ----------
+
+    /// <summary>
+    /// A message written on the website in a personal chat is also delivered to the Jabber clients of the other
+    /// person. Rooms are not bridged.
+    /// </summary>
+    private async Task ForwardToJabberAsync(
+        Guid authorId, Guid chatId, string text, IReadOnlyList<PreparedFile> files, ChatAccess chatAccess, CancellationToken ct)
+    {
+        if (chatAccess.ParticipantIds.Count != 2 || !await db.PersonalChats.AnyAsync(p => p.Id == chatId, ct))
+        {
+            return;
+        }
+
+        var otherId = chatAccess.ParticipantIds.First(id => id != authorId);
+        var names = await db.Users.IgnoreQueryFilters().AsNoTracking()
+            .Where(u => u.Id == authorId || u.Id == otherId)
+            .ToDictionaryAsync(u => u.Id, u => u.Username, ct);
+        if (!names.TryGetValue(authorId, out var from) || !names.TryGetValue(otherId, out var to))
+        {
+            return;
+        }
+
+        var lines = new List<string>();
+        if (text.Length > 0) lines.Add(text);
+        lines.AddRange(files.Select(f => $"[attachment: {f.FileName}]"));
+        _ = jabber.SendChatMessageAsync(from, to, string.Join("\n", lines)); // best effort, not awaited
+    }
 
     private sealed record PreparedFile(UploadedFile Source, string FileName, string ContentType, bool IsImage, string? Comment);
 

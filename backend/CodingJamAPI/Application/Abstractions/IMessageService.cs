@@ -13,6 +13,9 @@ public interface IMessageService
     Task<MessageResponse> SendAsync(
         Guid userId, Guid chatId, SendMessageRequest request, IReadOnlyList<UploadedFile> files, CancellationToken ct);
 
+    /// <summary>A message the author wrote in a Jabber client: stored in the chat and shown live, but not sent back to Jabber.</summary>
+    Task<MessageResponse> ReceiveFromJabberAsync(Guid authorId, Guid chatId, string text, CancellationToken ct);
+
     Task<MessageResponse> EditAsync(Guid userId, Guid chatId, Guid messageId, EditMessageRequest request, CancellationToken ct);
     Task DeleteAsync(Guid userId, Guid chatId, Guid messageId, CancellationToken ct);
 

@@ -94,8 +94,8 @@ services:
       default:
         aliases:
           - b.chat.test
-    ports:
-      - "127.0.0.1:5223:5223" # Jabber clients (B listens on 5223 inside the container too)
+    # No published ports: B is only reached from inside the compose network (federation and the load test). To
+    # connect a Jabber client to it add   ports: ["127.0.0.1:5223:5223"]   here.
     restart: unless-stopped
 
   # Federation load test (not started by default):

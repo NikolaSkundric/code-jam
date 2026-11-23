@@ -5,5 +5,7 @@ define_macro:
   # A different container port than server A: Rancher Desktop mixes up published ports that share a
   # container port, so B listens on 5223 inside the container as well.
   C2S_PORT: 5223
+  CA_FILE: "/opt/chat-certs/ca.pem"
+  CERT_FILE: "/opt/chat-certs/b.chat.test.pem"
 
 auth_method: internal

@@ -55,6 +55,19 @@ public sealed class PresenceTracker(IOptions<PresenceOptions> options, TimeProvi
         }
     }
 
+    public PresenceChange? SetIdle(string connectionId)
+    {
+        lock (_lock)
+        {
+            if (!_tabs.TryGetValue(connectionId, out var tab))
+            {
+                return null;
+            }
+            tab.LastActivity = DateTimeOffset.MinValue;
+            return _users.TryGetValue(tab.UserId, out var user) ? Recompute(tab.UserId, user) : null;
+        }
+    }
+
     public PresenceChange? Disconnect(string connectionId)
     {
         lock (_lock)

@@ -11,7 +11,7 @@ using Npgsql;
 
 namespace CodingJamAPI.Application.Services;
 
-public sealed class BanService(AppDbContext db, IRealtimeNotifier notifier) : IBanService
+public sealed class BanService(AppDbContext db, IRealtimeNotifier notifier, IJabberGateway jabber) : IBanService
 {
     public Task<bool> IsBlockedAsync(Guid userA, Guid userB, CancellationToken ct) =>
         db.UserBans.AnyAsync(b =>
@@ -83,6 +83,17 @@ public sealed class BanService(AppDbContext db, IRealtimeNotifier notifier) : IB
         }
 
         await notifier.FriendsChangedAsync([userId, target.Id], ct);
+
+        if (friendships.Count > 0)
+        {
+            var names = await db.Users.AsNoTracking()
+                .Where(u => u.Id == userId || u.Id == target.Id)
+                .ToDictionaryAsync(u => u.Id, u => u.Username, ct);
+            if (names.TryGetValue(userId, out var banner) && names.TryGetValue(target.Id, out var banned))
+            {
+                _ = jabber.RemoveFriendshipAsync(banner, banned); // best effort, not awaited
+            }
+        }
     }
 
     public async Task UnbanAsync(Guid userId, Guid bannedUserId, CancellationToken ct)

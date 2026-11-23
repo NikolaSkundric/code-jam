@@ -10,9 +10,10 @@ hosts:
 
 loglevel: info
 
-ca_file: /opt/ejabberd/conf/cacert.pem
+# Certificates (CA_FILE, CERT_FILE) come from the per-server file.
+ca_file: CA_FILE
 certfiles:
-  - /opt/ejabberd/conf/server.pem
+  - CERT_FILE
 
 listen:
   # Jabber clients (STARTTLS required; the bundled certificate is self-signed)
@@ -40,10 +41,9 @@ listen:
       /api: mod_http_api
       /stats: mod_chat_stats
 
-# Federation (server to server). The two demo servers only have self-signed certificates, which a federation
-# peer rightly refuses, so the link between them is not TLS-encrypted and the peer is verified with dialback.
-# For real federation over the internet use certificates from a CA and set this to required_trusted.
-s2s_use_starttls: false
+# Federation (server to server): TLS is mandatory and the peer's certificate must be valid for its domain and
+# signed by a CA we trust. (The demo servers trust the demo CA; real servers use public CAs.)
+s2s_use_starttls: required_trusted
 s2s_access: s2s
 
 acl:
@@ -91,6 +91,10 @@ api_permissions:
       - register
       - unregister
       - check_account
+      - send_message
+      - add_rosteritem
+      - delete_rosteritem
+      - kick_user
 
 shaper:
   normal:
@@ -109,6 +113,8 @@ modules:
   mod_admin_extra: {}
   mod_caps: {}
   mod_chat_stats: {}
+  # reports messages and presence of local users to the web API (only when XMPP_AUTH_URL is set)
+  mod_chat_bridge: {}
   mod_carboncopy: {}
   mod_client_state: {}
   mod_disco: {}

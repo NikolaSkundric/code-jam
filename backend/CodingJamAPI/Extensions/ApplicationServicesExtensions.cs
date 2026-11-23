@@ -35,6 +35,7 @@ public static class ApplicationServicesExtensions
         services.Configure<PresenceOptions>(configuration.GetSection(PresenceOptions.SectionName));
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<IPresenceTracker, PresenceTracker>();
+        services.AddSingleton<IPresencePublisher, PresencePublisher>();
         services.AddHostedService<PresenceSweeperService>();
 
         services.AddSingleton<IUserIdProvider, SubUserIdProvider>();
@@ -43,7 +44,11 @@ public static class ApplicationServicesExtensions
         services.Configure<XmppOptions>(configuration.GetSection(XmppOptions.SectionName));
         services.Configure<AdminOptions>(configuration.GetSection(AdminOptions.SectionName));
         services.AddScoped<IXmppAuthService, XmppAuthService>();
-        services.AddHttpClient<IXmppAdminService, EjabberdAdminService>(c => c.Timeout = TimeSpan.FromSeconds(6));
+        services.AddHttpClient<EjabberdApiClient>(c => c.Timeout = TimeSpan.FromSeconds(6));
+        services.AddScoped<IXmppAdminService, EjabberdAdminService>();
+        services.AddTransient<IJabberGateway, EjabberdGateway>();
+        services.AddScoped<IXmppBridgeService, XmppBridgeService>();
+        services.AddHostedService<JabberSyncService>();
 
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IFriendService, FriendService>();

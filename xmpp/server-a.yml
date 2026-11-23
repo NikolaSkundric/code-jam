@@ -3,6 +3,8 @@
 define_macro:
   HOST: "a.chat.test"
   C2S_PORT: 5222
+  CA_FILE: "/opt/chat-certs/ca.pem"
+  CERT_FILE: "/opt/chat-certs/a.chat.test.pem"
 
 auth_method: external
 extauth_program: "python3 /opt/ejabberd/extauth.py"

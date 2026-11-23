@@ -16,6 +16,9 @@ public interface IPresenceTracker
 
     PresenceChange? Disconnect(string connectionId);
 
+    /// <summary>The connection is idle right now (a Jabber client that is away): it counts as AFK, not online.</summary>
+    PresenceChange? SetIdle(string connectionId);
+
     /// <summary>Detects tabs that became idle; call periodically.</summary>
     IReadOnlyList<PresenceChange> Sweep();
 

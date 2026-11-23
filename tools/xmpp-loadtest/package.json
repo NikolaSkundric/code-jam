@@ -5,9 +5,11 @@
   "description": "Federation load test: many Jabber clients on two servers messaging each other",
   "type": "module",
   "scripts": {
-    "start": "node loadtest.mjs"
+    "start": "node loadtest.mjs",
+    "bridge-test": "node bridge-test.mjs"
   },
   "dependencies": {
-    "@xmpp/client": "^0.14.0"
+    "@xmpp/client": "^0.14.0",
+    "@microsoft/signalr": "^8.0.7"
   }
 }
