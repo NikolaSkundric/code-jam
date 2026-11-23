@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using CodingJamAPI.Infrastructure.Persistence;
 using CodingJamAPI.Options;
@@ -19,12 +20,21 @@ public static class AuthenticationExtensions
     public static IServiceCollection AddJwtCookieAuthentication(this IServiceCollection services, IConfiguration configuration)
     {
         var jwt = configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
-        if (jwt.SigningKey.Length < 32)
-        {
-            throw new InvalidOperationException("Jwt:SigningKey must be configured and at least 32 characters long.");
-        }
+
+        // Without a configured key (JWT_SIGNING_KEY in .env) a random one is used for this run:
+        // everything works, but sessions end whenever the API restarts. No key is stored in the repository.
+        var signingKey = jwt.SigningKey.Length >= 32
+            ? jwt.SigningKey
+            : Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
 
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
+        services.PostConfigure<JwtOptions>(o =>
+        {
+            if (o.SigningKey.Length < 32)
+            {
+                o.SigningKey = signingKey;
+            }
+        });
 
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
@@ -38,7 +48,7 @@ public static class AuthenticationExtensions
                     ValidAudience = jwt.Audience,
                     ValidateLifetime = true,
                     ValidateIssuerSigningKey = true,
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.SigningKey)),
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey)),
                     ClockSkew = TimeSpan.FromSeconds(30),
                     NameClaimType = "sub"
                 };

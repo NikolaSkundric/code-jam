@@ -285,3 +285,11 @@ Deleting a room (TASK.md 2.4.6): `ExecuteDelete` on the `Chat` row cascades to r
 ### UI layout notes (TASK.md 4.1)
 
 Top menu (wireframe): Chats, Public Rooms (catalog), Private Rooms, Contacts, Sessions, Profile menu (name, status, Settings), Sign out. The chat sidebar (left, as drawn in the wireframe) is collapsible (preference kept in localStorage) and its Public rooms / Private rooms / Contacts sections are an accordion: all open on the overview, and entering a room or chat compacts it to the group that contains it. Deleting an account also removes the upload folders of the rooms it owned.
+
+## 10. Configuration and secrets
+
+No secret is stored in the repository. `.env` (git-ignored; template: `.env.example`) holds `POSTGRES_PASSWORD` and `JWT_SIGNING_KEY`. `docker-compose.yml` reads it automatically and passes the values to the containers (`${POSTGRES_PASSWORD:-postgres}`, `${JWT_SIGNING_KEY:-}`). Outside Docker (`dotnet run`, Visual Studio, `dotnet ef`) the API reads the same file in Development (`Extensions/DotEnv.cs`), building the connection string for the published postgres port.
+
+- Fresh clone without `.env`: `docker compose up` still works. The database falls back to the throwaway password `postgres` (published on 127.0.0.1 only), and the API generates a random JWT key at startup, so users are signed out whenever the API restarts. Copy `.env.example` to `.env` and set real values for anything beyond a local demo.
+- The postgres password is applied only when the data volume is first created. Change it later with `ALTER USER postgres PASSWORD '...'` (or `docker compose down -v`, which deletes all data), then update `.env`.
+- The first two commits still contain the old placeholder values (`postgres` password, a dev JWT key). The local database password was rotated, so they are useless; rewrite history before publishing if that matters.

@@ -1,3 +1,4 @@
+using CodingJamAPI.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -9,9 +10,12 @@ public sealed class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<App
 {
     public AppDbContext CreateDbContext(string[] args)
     {
+        // Either an explicit connection string, or the postgres password from the repository .env file.
         var connectionString =
             Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
-            ?? "Host=localhost;Port=5440;Database=chatdb;Username=postgres;Password=postgres";
+            ?? DotEnv.HostConnectionString(DotEnv.Read(Directory.GetCurrentDirectory()))
+            ?? throw new InvalidOperationException(
+                "No database connection: set ConnectionStrings__DefaultConnection or POSTGRES_PASSWORD in .env.");
 
         var options = new DbContextOptionsBuilder<AppDbContext>()
             .UseNpgsql(connectionString)

@@ -9,6 +9,22 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Local runs outside Docker (dotnet run, Visual Studio) read the secrets from the repository .env file.
+if (builder.Environment.IsDevelopment())
+{
+    var env = DotEnv.Read(builder.Environment.ContentRootPath);
+    var overrides = new Dictionary<string, string?>();
+    if (env.TryGetValue("JWT_SIGNING_KEY", out var signingKey) && signingKey.Length > 0)
+    {
+        overrides["Jwt:SigningKey"] = signingKey;
+    }
+    if (DotEnv.HostConnectionString(env) is { } connectionString)
+    {
+        overrides["ConnectionStrings:DefaultConnection"] = connectionString;
+    }
+    builder.Configuration.AddInMemoryCollection(overrides);
+}
+
 builder.Services.AddPersistence(builder.Configuration);
 builder.Services.AddJwtCookieAuthentication(builder.Configuration);
 builder.Services.AddApplicationServices(builder.Configuration);
@@ -30,6 +46,11 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 });
 
 var app = builder.Build();
+
+if ((app.Configuration["Jwt:SigningKey"] ?? string.Empty).Length < 32)
+{
+    app.Logger.LogWarning("Jwt:SigningKey is not configured (JWT_SIGNING_KEY in .env): using a random key, sessions end when the API restarts.");
+}
 
 // Apply pending EF Core migrations on startup (needed for docker compose up on a fresh database).
 using (var scope = app.Services.CreateScope())
