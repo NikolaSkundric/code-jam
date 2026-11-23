@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import Modal from '@/components/ui/Modal'
 import type { Message } from '../types'
 import MessageAttachments from './MessageAttachments'
 
@@ -126,34 +127,39 @@ export default function MessageItem({
 
       {canWrite && !editing && (
         <div className="message-actions">
-          {confirmingDelete ? (
-            <>
-              <span>Delete this message?</span>
-              <button type="button" className="link-button" disabled={busy} onClick={confirmDelete}>
-                Delete
-              </button>
-              <button type="button" className="link-button" onClick={() => setConfirmingDelete(false)}>
-                Cancel
-              </button>
-            </>
-          ) : (
-            <>
-              <button type="button" className="link-button" onClick={() => onReply(message)}>
-                Reply
-              </button>
-              {mine && (
-                <button type="button" className="link-button" onClick={() => setEditing(true)}>
-                  Edit
-                </button>
-              )}
-              {(mine || canModerate) && (
-                <button type="button" className="link-button" onClick={() => setConfirmingDelete(true)}>
-                  Delete
-                </button>
-              )}
-            </>
+          <button type="button" className="link-button" onClick={() => onReply(message)}>
+            Reply
+          </button>
+          {mine && (
+            <button type="button" className="link-button" onClick={() => setEditing(true)}>
+              Edit
+            </button>
+          )}
+          {(mine || canModerate) && (
+            <button type="button" className="link-button" onClick={() => setConfirmingDelete(true)}>
+              Delete
+            </button>
           )}
         </div>
+      )}
+
+      {confirmingDelete && (
+        <Modal title="Delete message" onClose={() => setConfirmingDelete(false)}>
+          <p className="delete-preview">
+            {mine ? 'Delete your message?' : `Delete the message from ${message.authorUsername}?`}
+          </p>
+          <blockquote className="message-reply">
+            {message.text || (hasAttachments ? '📎 Attachment' : '')}
+          </blockquote>
+          <div className="settings-actions">
+            <button type="button" className="btn-danger" disabled={busy} onClick={confirmDelete}>
+              {busy ? 'Deleting…' : 'Delete message'}
+            </button>
+            <button type="button" className="btn-secondary" disabled={busy} onClick={() => setConfirmingDelete(false)}>
+              Cancel
+            </button>
+          </div>
+        </Modal>
       )}
     </article>
   )

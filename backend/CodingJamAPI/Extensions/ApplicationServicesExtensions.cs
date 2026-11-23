@@ -17,7 +17,16 @@ public static class ApplicationServicesExtensions
         services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
         services.AddSingleton<ITokenService, JwtTokenService>();
         services.AddSingleton<IAuthCookieService, AuthCookieService>();
-        services.AddSingleton<IEmailSender, LoggingEmailSender>();
+        // Real mail when an SMTP host is configured (docker compose: Mailpit), otherwise the link is only logged.
+        services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
+        if (!string.IsNullOrWhiteSpace(configuration[$"{EmailOptions.SectionName}:Host"]))
+        {
+            services.AddSingleton<IEmailSender, SmtpEmailSender>();
+        }
+        else
+        {
+            services.AddSingleton<IEmailSender, LoggingEmailSender>();
+        }
 
         services.Configure<StorageOptions>(configuration.GetSection(StorageOptions.SectionName));
         services.AddSingleton<IFileStorage, LocalFileStorage>();

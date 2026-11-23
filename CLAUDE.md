@@ -205,11 +205,15 @@ JWT (sub = user id, jti = session id) in an HttpOnly cookie `access_token`; ever
 | `POST login` | no | Email + password, `keepSignedIn` = persistent cookie (30 days) else session cookie (24 h) |
 | `POST logout` | yes | Revoke current session only |
 | `GET me` | yes | Current user |
-| `POST forgot-password` | no | Always 202; reset link is written to the API log (no email provider yet) |
+| `POST forgot-password` | no | Always 202 (same answer for unknown emails); the reset link is emailed in the background (see below) |
 | `POST reset-password` | no | `{token, newPassword}`; single use, 1 h; signs out all sessions |
 | `POST change-password` | yes | `{currentPassword, newPassword}`; revokes the other sessions |
 | `GET sessions` / `DELETE sessions/{id}` | yes | List / revoke active sessions (browser, IP) |
 | `DELETE account` | yes | `{password}`; soft deletes the user, permanently deletes owned rooms |
+
+Sessions are sliding: once half of a session lifetime (24 h, or 30 days with "Keep me signed in", checked by default) has passed, the next request extends the session and re-issues the cookie, so active users are never logged out. The persistent choice travels in the JWT claim `rem`.
+
+Email: `Email:*` settings. With `Email__Host` set (docker compose points it at the bundled Mailpit container) `SmtpEmailSender` sends the reset mail; the inbox is at http://localhost:8025. Without a host, `LoggingEmailSender` only logs the link. Failures never change the API response.
 
 Errors are RFC 7807 problem details; field errors are in `errors` (camelCase keys for business errors).
 
@@ -284,7 +288,7 @@ Deleting a room (TASK.md 2.4.6): `ExecuteDelete` on the `Chat` row cascades to r
 
 ### UI layout notes (TASK.md 4.1)
 
-Top menu (wireframe): Chats, Public Rooms (catalog), Private Rooms, Contacts, Sessions, Profile menu (name, status, Settings), Sign out. The chat sidebar (left, as drawn in the wireframe) is collapsible (preference kept in localStorage) and its Public rooms / Private rooms / Contacts sections are an accordion: all open on the overview, and entering a room or chat compacts it to the group that contains it. Deleting an account also removes the upload folders of the rooms it owned.
+Top menu (wireframe): Chats, Public Rooms (catalog), Private Rooms, Contacts, Sessions, Profile menu (name, status, Settings), Sign out. The chat sidebar (left, as drawn in the wireframe) is collapsible (preference kept in localStorage) and its Public rooms / Private rooms / Contacts sections are an accordion: all open on the overview, and entering a room or chat compacts it to the group that contains it. Deleting an account also removes the upload folders of the rooms it owned. Deleting a message asks for confirmation in a modal dialog (TASK.md 4.5).
 
 ## 10. Configuration and secrets
 

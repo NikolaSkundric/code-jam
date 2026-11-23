@@ -13,7 +13,7 @@ export default function LoginPage() {
   const { setUser } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [keepSignedIn, setKeepSignedIn] = useState(false)
+  const [keepSignedIn, setKeepSignedIn] = useState(true)
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({})
   const [formError, setFormError] = useState('')
   const [submitting, setSubmitting] = useState(false)

@@ -283,7 +283,7 @@ public sealed class AuthService(
         db.UserSessions.Add(session);
         await db.SaveChangesAsync(ct);
 
-        var token = tokens.CreateToken(user.Id, session.Id, expiresAt);
+        var token = tokens.CreateToken(user.Id, session.Id, expiresAt, keepSignedIn);
         return new AuthResult(ToResponse(user), token, expiresAt, keepSignedIn);
     }
 

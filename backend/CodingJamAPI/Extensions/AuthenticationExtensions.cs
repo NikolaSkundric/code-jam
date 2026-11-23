@@ -1,6 +1,8 @@
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using CodingJamAPI.Application.Abstractions;
+using CodingJamAPI.Infrastructure.Auth;
 using CodingJamAPI.Infrastructure.Persistence;
 using CodingJamAPI.Options;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -78,20 +80,38 @@ public static class AuthenticationExtensions
                         var now = DateTime.UtcNow;
 
                         // Session must exist, be active, and belong to a user that is not deleted.
-                        var lastSeen = await db.UserSessions
+                        var session = await db.UserSessions
                             .Where(s => s.Id == sessionId && s.UserId == userId
                                         && s.RevokedAt == null && s.ExpiresAt > now
                                         && db.Users.Any(u => u.Id == s.UserId))
-                            .Select(s => (DateTime?)s.LastSeenAt)
+                            .Select(s => new { s.LastSeenAt, s.ExpiresAt })
                             .FirstOrDefaultAsync(context.HttpContext.RequestAborted);
 
-                        if (lastSeen is null)
+                        if (session is null)
                         {
                             context.Fail("Session is no longer valid.");
                             return;
                         }
 
-                        if (now - lastSeen.Value > LastSeenInterval)
+                        // Sliding session: no logout while the user keeps using the app (TASK.md 3.5). Once half of
+                        // the lifetime has passed, the session is extended and the cookie is re-issued.
+                        var persistent = principal.HasClaim(JwtTokenService.PersistentClaim, "1");
+                        var lifetime = persistent ? TimeSpan.FromDays(jwt.RememberMeDays) : TimeSpan.FromHours(jwt.SessionHours);
+                        if (session.ExpiresAt - now < lifetime / 2 && !context.Response.HasStarted)
+                        {
+                            var newExpiry = now + lifetime;
+                            await db.UserSessions
+                                .Where(s => s.Id == sessionId)
+                                .ExecuteUpdateAsync(s => s
+                                    .SetProperty(x => x.ExpiresAt, newExpiry)
+                                    .SetProperty(x => x.LastSeenAt, now),
+                                    context.HttpContext.RequestAborted);
+
+                            var services = context.HttpContext.RequestServices;
+                            var token = services.GetRequiredService<ITokenService>().CreateToken(userId, sessionId, newExpiry, persistent);
+                            services.GetRequiredService<IAuthCookieService>().Append(context.Response, token, newExpiry, persistent);
+                        }
+                        else if (now - session.LastSeenAt > LastSeenInterval)
                         {
                             await db.UserSessions
                                 .Where(s => s.Id == sessionId)

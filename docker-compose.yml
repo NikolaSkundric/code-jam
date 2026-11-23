@@ -16,6 +16,14 @@ services:
       timeout: 5s
       retries: 10
 
+  # Local inbox for outgoing mail (password reset links): http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:v1.21
+    container_name: chat-mailpit
+    ports:
+      - "127.0.0.1:8025:8025" # web UI
+    restart: unless-stopped
+
   api:
     build:
       context: ./backend/CodingJamAPI
@@ -26,9 +34,14 @@ services:
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=chatdb;Username=postgres;Password=${POSTGRES_PASSWORD:-postgres}
       Jwt__SigningKey: ${JWT_SIGNING_KEY:-} # empty: the API uses a random key per start
+      Email__Host: mailpit
+      Email__Port: "1025"
+      Email__From: no-reply@chat.local
     depends_on:
       postgres:
         condition: service_healthy
+      mailpit:
+        condition: service_started
     ports:
       - "5125:8080" # direct API access (the frontend proxies /api and /hubs here)
     volumes:
